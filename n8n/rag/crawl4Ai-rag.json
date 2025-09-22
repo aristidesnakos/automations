@@ -1,0 +1,875 @@
+{
+  "name": "crawl4Ai-rag",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "ae833eef-ce76-4708-896a-27b6359ad67f",
+      "name": "When clicking ‘Test workflow’",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        48,
+        -464
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://sydneysothebysrealty.com/cns/sitemap/forsale",
+        "options": {}
+      },
+      "id": "315c91eb-bc99-42a5-9924-e3f028fb0a02",
+      "name": "HTTP Request",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        -464
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "fd6d4e1f-ee3c-4e5f-8570-839fe668dd80",
+      "name": "XML",
+      "type": "n8n-nodes-base.xml",
+      "typeVersion": 1,
+      "position": [
+        384,
+        -464
+      ]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "urlset.url",
+        "options": {}
+      },
+      "id": "b755182f-67de-4c3d-86dc-cfe02f52565f",
+      "name": "Split Out",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        544,
+        -464
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "a98e68f6-ead7-4b96-8ad7-3de63c02a5f6",
+      "name": "Loop Over Items",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        704,
+        -384
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "a1b2f879-f1e2-478f-bd3d-d865d28e5ee1",
+      "name": "Wait",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1152,
+        -480
+      ],
+      "webhookId": "32bffa96-a0b0-48f2-a3a3-bd476802df42"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://someapp-fo33d.ondigitalocean.app/crawl",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "urls",
+              "value": "={{ [$json.loc] }}"
+            },
+            {
+              "name": "priority",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "1cba8096-4eb4-4d2b-919e-ee021eaf1e32",
+      "name": "HTTP Request1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        -480
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "Eg4qkohuZnhnlOAW",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9d90c1ce-590e-40a5-ae8c-d92326032975",
+              "leftValue": "={{ $json.success }}",
+              "rightValue": "true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "246f16d3-8be9-4d3e-af6d-f1537731daa7",
+      "name": "If",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1312,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "f2bcdb54-e1fe-4670-99aa-6eec973bf5f1",
+              "name": "task_id",
+              "value": "={{ $('HTTP Request1').item.json.task_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "96105e35-98e5-488b-881f-f94c6769679f",
+      "name": "Edit Fields",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1504,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## n8n + Crawl4AI Agent for Real Estate Listings\n\n## Author: [Ari Nakos](https://youtube.com/just_aristides)\n\n###  This AI agent demonstrates how to crawl and process Sydney Sotheby's real estate listings using a Docker deployment of Crawl4AI, then vectorize the content\n  for RAG (Retrieval-Augmented Generation) applications.\n\n###  How this workflow operates\n\n###  1. Sitemap Extraction: Fetches the XML sitemap from Sydney Sotheby's real estate listings (forsale properties)\n###  2. URL Processing: Parses the XML and splits out individual property URLs for processing\n###  3. Batch Crawling: Loops through property URLs in batches, sending each to the Crawl4AI service for content extraction\n###  4. Asynchronous Processing: Uses wait nodes to handle the asynchronous nature of the crawling tasks\n###  5. Success Validation: Checks if each crawl was successful before proceeding to vectorization\n###  6. Content Vectorization: Processes successful crawls through:\n    - Default Data Loader to extract text content\n    - Character Text Splitter to chunk the content appropriately\n    - Cohere Embeddings for multilingual vector generation\n    - Supabase Vector Store for persistent storage and RAG queries\n\n## Prerequisites\n\n###  - Crawl4AI hosted in a Docker container following the https://docs.crawl4ai.com/core/docker-deployment/\n###  - Supabase database configured with vector storage capabilities\n###  - Cohere API key for embeddings generation\n\n## Use Cases\n\n###  This workflow enables semantic search and question-answering about Sydney Sotheby's real estate listings, perfect for property analysis, market research, or building intelligent real estate assistants.",
+        "height": 1110,
+        "width": 734,
+        "color": 6
+      },
+      "id": "6023207a-3900-40cc-90a2-0623cf0234c0",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -768,
+        -560
+      ]
+    },
+    {
+      "parameters": {
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.results[0].cleaned_html }}",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "file_title",
+                "value": "={{ $json.results[0].metadata.title }}"
+              },
+              {
+                "name": "file_description",
+                "value": "={{ $json.results[0].metadata.description }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "e412bac7-1ac4-4967-9b3d-bb44b078d2d0",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        -384
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "91fea5ad-ec50-4699-9311-090c872db1fd",
+      "name": "Character Text Splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [
+        1696,
+        -256
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "tableName": {
+          "__rl": true,
+          "value": "documents",
+          "mode": "list",
+          "cachedResultName": "documents"
+        },
+        "options": {
+          "queryName": "match_documents"
+        }
+      },
+      "id": "304fa48d-7beb-4065-a1bf-27279dff344a",
+      "name": "Insert into Supabase Vectorstore",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        -544
+      ],
+      "credentials": {
+        "supabaseApi": {
+          "id": "dwzEJCwskzypELEv",
+          "name": "Chatbot Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "embed-multilingual-v3.0"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsCohere",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        -368
+      ],
+      "id": "9eb69481-e0a6-46ac-9b64-e03ceb1b3249",
+      "name": "Embeddings_Cohere",
+      "credentials": {
+        "cohereApi": {
+          "id": "LUT27MMFHSHOMweS",
+          "name": "CohereApi KEY"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 2) RAG AI Agent with Chat Interface",
+        "height": 565,
+        "width": 696
+      },
+      "id": "1291a798-6a0c-4fa4-82c3-6934a70b5847",
+      "name": "Sticky Note2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9a9a245e-f1a1-4282-bb02-a81ffe629f0f",
+              "name": "chatInput",
+              "value": "={{ $json.chatInput }}",
+              "type": "string"
+            },
+            {
+              "id": "b80831d8-c653-4203-8706-adedfdb98f77",
+              "name": "sessionId",
+              "value": "={{ $json.sessionId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "12cb254f-69a3-4ffe-92e5-b5d6e545b560",
+      "name": "Edit Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        208,
+        144
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Agent Tools for RAG",
+        "height": 469,
+        "width": 503,
+        "color": 4
+      },
+      "id": "370b469d-55ca-468d-8eda-8f58d5a80598",
+      "name": "Sticky Note1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        768,
+        32
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        48,
+        144
+      ],
+      "id": "5189248b-cd8e-4d2a-b8a0-b28d0a7528a9",
+      "name": "When chat message received",
+      "webhookId": "58508332-2c19-4546-838b-3c3a5c1f76d5"
+    },
+    {
+      "parameters": {},
+      "id": "b2a9fe49-3e09-4b9e-a75f-d8784914d9e3",
+      "name": "Postgres Chat Memory1",
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1,
+      "position": [
+        416,
+        384
+      ],
+      "notesInFlow": false,
+      "credentials": {
+        "postgres": {
+          "id": "7NU7OanijnA8b6Sh",
+          "name": "Chatbot Session Pooler"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.chatInput }}",
+        "options": {
+          "systemMessage": "You are a personal assistant who helps answer questions from a corpus of documents. Documents are text based (Txt, docs, extracted PDFs, etc.)\n\nYou are given tools to perform RAG in the 'documents' table, look up the documents available in your knowledge base in the 'document_metadata' table, extract all the text from a given document.\n\nAlways start by performing RAG. If RAG doesn't help, then look at the documents that are available to you, find a few that you think would contain the answer, and then analyze those.\n\nAlways tell the user if you didn't find the answer. Don't make something up just to please them."
+        }
+      },
+      "id": "242f79c3-3715-4d80-99a9-054daeadb455",
+      "name": "RAG AI Agent1",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.6,
+      "position": [
+        384,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Use this tool to fetch all available documents, including the table schema if the file is a CSV or Excel file.",
+        "operation": "select",
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "document_metadata",
+          "mode": "list",
+          "cachedResultName": "document_metadata"
+        },
+        "returnAll": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgresTool",
+      "typeVersion": 2.5,
+      "position": [
+        576,
+        384
+      ],
+      "id": "e3a5b3a2-0278-44e2-8a1d-7ec60ff634a1",
+      "name": "List Documents1",
+      "credentials": {
+        "postgres": {
+          "id": "7NU7OanijnA8b6Sh",
+          "name": "Chatbot Session Pooler"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        256,
+        384
+      ],
+      "id": "aeecfd17-dcb4-4f01-a2d7-55d76fa69660",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "ATtoilRBVuHlMkSk",
+          "name": "n8n-veo3"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        1056,
+        368
+      ],
+      "id": "9033b2f4-8297-4dbd-83e5-e247224dc7b6",
+      "name": "Reranker Cohere",
+      "credentials": {
+        "cohereApi": {
+          "id": "LUT27MMFHSHOMweS",
+          "name": "CohereApi KEY"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "embed-multilingual-v3.0"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsCohere",
+      "typeVersion": 1,
+      "position": [
+        816,
+        352
+      ],
+      "id": "9c907c4a-d8b5-4780-8897-1107eacd7c24",
+      "name": "Embeddings Cohere",
+      "credentials": {
+        "cohereApi": {
+          "id": "LUT27MMFHSHOMweS",
+          "name": "CohereApi KEY"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolName": "documents",
+        "toolDescription": "Use RAG to look up information in the knowledgebase.",
+        "tableName": {
+          "__rl": true,
+          "value": "documents",
+          "mode": "list",
+          "cachedResultName": "documents"
+        },
+        "useReranker": true,
+        "options": {
+          "queryName": "match_documents"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreSupabase",
+      "typeVersion": 1,
+      "position": [
+        864,
+        208
+      ],
+      "id": "0b6f2fd9-1146-440d-87de-1aca0ce8cf42",
+      "name": "Supabase Vector Store",
+      "credentials": {
+        "supabaseApi": {
+          "id": "dwzEJCwskzypELEv",
+          "name": "Chatbot Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 1) Crawl4AI Scrape and Vectorize Knowledge",
+        "height": 501,
+        "width": 1880,
+        "color": 3
+      },
+      "id": "232ad927-6d71-45b8-bdd5-09ffe8f6371d",
+      "name": "Sticky Note3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -560
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE TABLE document_metadata (\n    id TEXT PRIMARY KEY,\n    title TEXT,\n    url TEXT,\n    created_at TIMESTAMP DEFAULT NOW(),\n    schema TEXT\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        288,
+        -896
+      ],
+      "id": "5c739fe3-fdab-407f-a7e1-8f5de7c8cd8f",
+      "name": "Create Document Metadata Table",
+      "credentials": {
+        "postgres": {
+          "id": "7NU7OanijnA8b6Sh",
+          "name": "Chatbot Session Pooler"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "-- Create a table to store your documents\ncreate table documents (\n  id bigserial primary key,\n  content text, -- corresponds to Document.pageContent\n  metadata jsonb, -- corresponds to Document.metadata\n  embedding vector(1024) -- 1024 because of Cohere English v2.0 embeddings, change if needed\n);\n\n-- Create a function to search for documents\ncreate function match_documents (\n  query_embedding vector(1536),\n  match_count int default null,\n  filter jsonb DEFAULT '{}'\n) returns table (\n  id bigint,\n  content text,\n  metadata jsonb,\n  similarity float\n)\nlanguage plpgsql\nas $$\n#variable_conflict use_column\nbegin\n  return query\n  select\n    id,\n    content,\n    metadata,\n    1 - (documents.embedding <=> query_embedding) as similarity\n  from documents\n  where metadata @> filter\n  order by documents.embedding <=> query_embedding\n  limit match_count;\nend;\n$$;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        112,
+        -896
+      ],
+      "id": "e245b703-4ab3-496e-aa68-66614c06d48a",
+      "name": "Create Documents Table and Match Function",
+      "credentials": {
+        "postgres": {
+          "id": "7NU7OanijnA8b6Sh",
+          "name": "Chatbot Session Pooler"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "CREATE TABLE document_rows (\n    id SERIAL PRIMARY KEY,\n    dataset_id TEXT REFERENCES document_metadata(id),\n    row_data JSONB  -- Store the actual row data\n);\n\nCREATE TABLE n8n_chat_histories (\n  id serial not null,\n  session_id character varying(255) not null,\n  message jsonb not null,\n  constraint n8n_chat_histories_pkey primary key (id)\n);",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        464,
+        -896
+      ],
+      "id": "bce71bba-a086-4651-9632-795b496d99d6",
+      "name": "Create Document Rows Table (for Tabular Data) & n8n chat histories",
+      "credentials": {
+        "postgres": {
+          "id": "7NU7OanijnA8b6Sh",
+          "name": "Chatbot Session Pooler"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## 0) Set Up DB Tables (once)",
+        "height": 440,
+        "width": 680,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        16,
+        -1024
+      ],
+      "typeVersion": 1,
+      "id": "0e866ba7-a2b3-4c44-9b68-69b087eddd9f",
+      "name": "Sticky Note4"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Test workflow’": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "XML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "XML": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Insert into Supabase Vectorstore",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Default Data Loader": {
+      "ai_document": [
+        [
+          {
+            "node": "Insert into Supabase Vectorstore",
+            "type": "ai_document",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Character Text Splitter": {
+      "ai_textSplitter": [
+        [
+          {
+            "node": "Default Data Loader",
+            "type": "ai_textSplitter",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings_Cohere": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Insert into Supabase Vectorstore",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Input": {
+      "main": [
+        [
+          {
+            "node": "RAG AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Edit Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "RAG AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "List Documents1": {
+      "ai_tool": [
+        [
+          {
+            "node": "RAG AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "RAG AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RAG AI Agent1": {
+      "main": [
+        []
+      ]
+    },
+    "Embeddings Cohere": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Supabase Vector Store",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase Vector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "RAG AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Document Metadata Table": {
+      "main": [
+        [
+          {
+            "node": "Create Document Rows Table (for Tabular Data) & n8n chat histories",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Documents Table and Match Function": {
+      "main": [
+        [
+          {
+            "node": "Create Document Metadata Table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "71bd0689-41e8-4f90-97ac-ab83bd6f9360",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5b9aff0ecdeb17791c04b93eac72e39e69151cfa63708980e5d936abe9308b8c"
+  },
+  "id": "RzC3Q8x8AvsGiLle",
+  "tags": []
+}
