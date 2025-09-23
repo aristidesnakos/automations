@@ -1,0 +1,234 @@
+{
+  "id": "BSxmKG8H861zKUw9",
+  "meta": {
+    "instanceId": "18c9b77a7db94bab09d77f4a9c44dd94853695bba1618cb7bc3c4bc412c07c1e",
+    "templateCredsSetupCompleted": true
+  },
+  "name": "Boring Business Opportunities Finder",
+  "tags": [],
+  "nodes": [
+    {
+      "id": "a915b64b-1052-4cd1-aca9-0325c1b2c29e",
+      "name": "Workflow Documentation",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -120,
+        -140
+      ],
+      "parameters": {
+        "color": 6,
+        "width": 450,
+        "height": 420,
+        "content": "## Boring Business Opportunities Finder\n\nThis workflow runs daily to identify lucrative opportunities in \"boring\" but profitable business sectors:\n\n1. **Market Research**: Uses AI to scan for underserved markets in traditional industries\n2. **Opportunity Analysis**: Identifies gaps in:\n   - 🏢 B2B Services (cleaning, maintenance, logistics)\n   - 🛠️ Essential Services (plumbing, electrical, HVAC)\n   - 📊 Niche Software (industry-specific tools)\n   - 🚛 Supply Chain Solutions (distribution, warehousing)\n3. **Opportunity Report**: Creates detailed analysis with market size, competition, and entry strategies\n\n### Setup Required:\n- AI API credentials (OpenAI/Azure)\n- Email credentials for report delivery\n- Update recipient email address\n\n### Customization:\n- Modify search criteria in AI prompt\n- Adjust report format\n- Change schedule frequency"
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "3c6ef52a-3c4b-4d0e-be08-d496c407fa67",
+      "name": "Setup Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "color": 3,
+        "width": 580,
+        "height": 280,
+        "content": "⚙️ **Configuration Needed:**\n\n1. **AI Agent**: Add your Chat Model API key to the \"Business Opportunity AI Agent\"\n\n2. **Email Settings**: \n   - Add your Gmail Credentials\n   - Update recipient email in Gmail node\n   - Email will be formatted as HTML report\n\n3. **Timing**: Modify schedule in \"Daily Trigger\" for different frequency\n\n4. **Focus Areas**: Customize business sectors in the AI Agent prompt\n\n5. **Geographic Scope**: Adjust location targeting in the research prompt"
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "2f165ff5-7666-4f7b-93e0-73556ad9ed7b",
+      "name": "Set Research Parameters",
+      "type": "n8n-nodes-base.set",
+      "position": [
+        60,
+        360
+      ],
+      "parameters": {
+        "options": {},
+        "assignments": {
+          "assignments": [
+            {
+              "id": "current-date",
+              "name": "currentDate",
+              "type": "string",
+              "value": "={{ $now.format('yyyy-MM-dd') }}"
+            },
+            {
+              "id": "research-period",
+              "name": "researchPeriod",
+              "type": "string",
+              "value": "={{ $now.minus({days: 30}).format('yyyy-MM-dd') }}"
+            },
+            {
+              "id": "geographic-focus",
+              "name": "geographicFocus",
+              "type": "string",
+              "value": "United States, Canada, United Kingdom"
+            }
+          ]
+        }
+      },
+      "typeVersion": 3.4
+    },
+    {
+      "id": "419a0eac-33f1-4349-ba54-a0a428ef8c1c",
+      "name": "Send Opportunity Report",
+      "type": "n8n-nodes-base.gmail",
+      "position": [
+        880,
+        360
+      ],
+      "webhookId": "6e5776e8-b6b9-4c56-8b3a-812f68959434",
+      "parameters": {
+        "sendTo": "your-email@example.com",
+        "message": "={{ $json.html }}",
+        "options": {},
+        "subject": "={{ $json.subject }}"
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "kqndcZ7sNbQqDrJF",
+          "name": "Gmail account"
+        }
+      },
+      "typeVersion": 2.1
+    },
+    {
+      "id": "57cb8666-b3ff-489b-a6a5-be329ad82ab6",
+      "name": "Format Opportunity Report",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        660,
+        360
+      ],
+      "parameters": {
+        "jsCode": "// n8n Code Node - Boring Business Opportunities Report Formatter\n// This code formats the AI analysis output for email delivery\n\n// Get the AI agent output from the previous node\nconst aiOutput = $input.all()[0].json.output || $input.all()[0].json.text || $input.all()[0].json;\n\n// Extract the opportunity analysis content\nlet opportunityContent = '';\nif (typeof aiOutput === 'object' && aiOutput.content) {\n  opportunityContent = aiOutput.content;\n} else if (typeof aiOutput === 'string') {\n  // Clean up the content\n  opportunityContent = aiOutput.replace(/^this is the output from the ai agent:\\s*/i, '');\n} else {\n  opportunityContent = JSON.stringify(aiOutput);\n}\n\n// Clean up the content - remove \\n literals and format properly\nopportunityContent = opportunityContent\n  .replace(/\\\\n/g, '\\n')  // Convert literal \\n to actual newlines\n  .replace(/^\\s+|\\s+$/g, '')  // Trim whitespace\n  .replace(/\\n{3,}/g, '\\n\\n');  // Replace multiple newlines with double newlines\n\n// Generate email subject with current date\nfunction generateEmailSubject() {\n  const currentDate = new Date().toLocaleDateString('en-US', { \n    year: 'numeric', \n    month: 'long', \n    day: 'numeric' \n  });\n  return `💼 Boring Business Opportunities Report - ${currentDate}`;\n}\n\n// Generate email body with proper formatting\nfunction generateEmailBody() {\n  const emailBody = `Boring Business Opportunities Report\n\nGenerated on: ${new Date().toLocaleDateString()}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${opportunityContent}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\nThis report was automatically generated to help identify profitable opportunities in traditional, stable business sectors.\n\nNext steps:\n1. Research the most promising opportunities further\n2. Validate market demand in your target area\n3. Assess your resources and capabilities\n4. Consider starting with the lowest barrier-to-entry option\n\n---\n📊 This report was automatically generated via n8n automation.\n📧 Questions or feedback? Reply to this email.`;\n\n  return emailBody;\n}\n\n// Generate HTML version of the email for better formatting\nfunction generateHTMLEmailBody() {\n  // Convert markdown-like content to basic HTML\n  let htmlContent = opportunityContent\n    .replace(/^# (.*$)/gm, '<h1 style=\"color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; margin-top: 30px;\">$1</h1>')\n    .replace(/^## (.*$)/gm, '<h2 style=\"color: #34495e; margin-top: 25px; margin-bottom: 15px; border-left: 4px solid #3498db; padding-left: 15px;\">$1</h2>')\n    .replace(/^### (.*$)/gm, '<h3 style=\"color: #5a6c7d; margin-top: 20px; margin-bottom: 10px;\">$1</h3>')\n    .replace(/\\*\\*(.*?)\\*\\*/g, '<strong style=\"color: #2c3e50;\">$1</strong>')\n    .replace(/\\*(.*?)\\*/g, '<em>$1</em>')\n    .replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href=\"$2\" style=\"color: #3498db; text-decoration: none; border-bottom: 1px dotted #3498db;\">$1</a>')\n    .replace(/^- (.*$)/gm, '<li style=\"margin-bottom: 8px; color: #5a6c7d;\">$1</li>')\n    .replace(/^> (.*$)/gm, '<blockquote style=\"border-left: 4px solid #f39c12; padding-left: 20px; margin: 20px 0; font-style: italic; color: #7f8c8d; background: #fafafa; padding: 15px;\">$1</blockquote>')\n    .replace(/---/g, '<hr style=\"border: none; border-top: 2px solid #ecf0f1; margin: 30px 0;\">')\n    .replace(/\\n\\n/g, '</p><p style=\"line-height: 1.7; margin-bottom: 18px; color: #5a6c7d;\">')\n    .replace(/\\n/g, '<br>');\n\n  // Wrap list items in ul tags\n  htmlContent = htmlContent.replace(/(<li[^>]*>.*?<\\/li>)/gs, '<ul style=\"padding-left: 25px; margin-bottom: 20px;\">$1</ul>');\n\n  const htmlBody = `\n<!DOCTYPE html>\n<html>\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title>Boring Business Opportunities Report</title>\n</head>\n<body style=\"font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #2c3e50; max-width: 900px; margin: 0 auto; padding: 20px; background-color: #f8f9fa;\">\n    <div style=\"background: white; padding: 40px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.1);\">\n        <div style=\"text-align: center; margin-bottom: 40px; padding: 30px; background: linear-gradient(135deg, #3498db 0%, #2c3e50 100%); border-radius: 10px; color: white;\">\n            <h1 style=\"margin: 0; font-size: 28px; font-weight: 300;\">💼 Boring Business Opportunities</h1>\n            <p style=\"margin: 15px 0 0 0; opacity: 0.9; font-size: 16px;\">Profitable Ventures in Traditional Industries</p>\n            <p style=\"margin: 10px 0 0 0; opacity: 0.8; font-size: 14px;\">Generated on ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>\n        </div>\n        \n        <div style=\"background: #f8f9fa; padding: 30px; border-radius: 10px; margin: 25px 0; border-left: 5px solid #3498db;\">\n            <p style=\"line-height: 1.7; margin-bottom: 18px; color: #5a6c7d;\">${htmlContent}</p>\n        </div>\n        \n        <div style=\"margin-top: 40px; padding: 30px; background: linear-gradient(135deg, #e8f5e8 0%, #f0f8ff 100%); border-radius: 10px; border: 1px solid #d4edda;\">\n            <h3 style=\"color: #2c3e50; margin-top: 0; margin-bottom: 20px; text-align: center;\">📋 Next Steps</h3>\n            <div style=\"display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;\">\n                <div style=\"background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);\">\n                    <h4 style=\"color: #3498db; margin: 0 0 10px 0; font-size: 14px;\">1. RESEARCH</h4>\n                    <p style=\"margin: 0; font-size: 13px; color: #5a6c7d;\">Deep dive into the most promising opportunities</p>\n                </div>\n                <div style=\"background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);\">\n                    <h4 style=\"color: #e74c3c; margin: 0 0 10px 0; font-size: 14px;\">2. VALIDATE</h4>\n                    <p style=\"margin: 0; font-size: 13px; color: #5a6c7d;\">Confirm market demand in your target area</p>\n                </div>\n                <div style=\"background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);\">\n                    <h4 style=\"color: #f39c12; margin: 0 0 10px 0; font-size: 14px;\">3. ASSESS</h4>\n                    <p style=\"margin: 0; font-size: 13px; color: #5a6c7d;\">Evaluate your resources and capabilities</p>\n                </div>\n                <div style=\"background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);\">\n                    <h4 style=\"color: #27ae60; margin: 0 0 10px 0; font-size: 14px;\">4. START</h4>\n                    <p style=\"margin: 0; font-size: 13px; color: #5a6c7d;\">Begin with the lowest barrier-to-entry option</p>\n                </div>\n            </div>\n        </div>\n        \n        <div style=\"margin-top: 30px; padding: 20px; background: #ecf0f1; border-radius: 8px; font-size: 14px; color: #7f8c8d; text-align: center;\">\n            <p style=\"margin: 5px 0;\">📊 This report was automatically generated via n8n automation to identify opportunities in stable, profitable business sectors.</p>\n            <p style=\"margin: 5px 0;\">📧 Questions or feedback? Reply to this email.</p>\n            <p style=\"margin: 10px 0 5px 0; font-style: italic;\">\"The best businesses are often the most boring ones\" - Warren Buffett</p>\n        </div>\n    </div>\n</body>\n</html>`;\n\n  return htmlBody;\n}\n\n// Generate the formatted output for the email node\nconst emailSubject = generateEmailSubject();\nconst emailBodyText = generateEmailBody();\nconst emailBodyHTML = generateHTMLEmailBody();\n\n// Return the formatted data for the next node (email sender)\nreturn [\n  {\n    json: {\n      subject: emailSubject,\n      text: emailBodyText,\n      html: emailBodyHTML,\n      // Additional metadata\n      opportunity_content: opportunityContent,\n      generated_at: new Date().toISOString(),\n      report_type: \"boring_business_opportunities\"\n    }\n  }\n];"
+      },
+      "typeVersion": 2
+    },
+    {
+      "id": "9a9676bb-d645-49fc-84ab-5a5c0cd92646",
+      "name": "Business Opportunity AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "position": [
+        280,
+        360
+      ],
+      "parameters": {
+        "text": "=Research and identify 3-5 promising \"boring business\" opportunities that meet these criteria:\n\n**Target Characteristics:**\n- Essential services that people/businesses always need\n- Low-tech, proven business models\n- Recurring revenue potential\n- Local market focus with expansion possibilities\n- Minimal disruption risk from technology\n- Cash-flow positive within 12-18 months\n\n**Industry Focus Areas:**\n1. **Essential B2B Services**: Commercial cleaning, waste management, maintenance, pest control, security services\n2. **Home Services**: HVAC, plumbing, electrical, landscaping, handyman services, window cleaning\n3. **Niche Software/SaaS**: Industry-specific tools for boring industries (dry cleaners, auto repair, etc.)\n4. **Supply Chain & Logistics**: Last-mile delivery, warehousing, specialized transportation\n5. **Specialized Manufacturing**: Niche components, custom fabrication, repair parts\n\n**For Each Opportunity, Provide:**\n\n### [Business Name/Type]\n**Market Overview:**\n- Market size and growth trends\n- Target customer segments\n- Geographic considerations\n\n**Business Model:**\n- Revenue streams (one-time, recurring, seasonal)\n- Typical pricing structure\n- Unit economics overview\n\n**Competitive Landscape:**\n- Level of market saturation\n- Typical competitors (small local vs. large chains)\n- Differentiation opportunities\n\n**Startup Requirements:**\n- Initial capital needed\n- Key equipment/infrastructure\n- Required licenses/certifications\n- Staffing needs\n\n**Success Factors:**\n- Critical skills needed\n- Key performance metrics\n- Common pitfalls to avoid\n- Growth scalability\n\n**Financial Projections:**\n- Revenue potential (Year 1-3)\n- Profit margins\n- Break-even timeline\n- Cash flow characteristics\n\n**Getting Started:**\n- First steps to validate the opportunity\n- Minimal viable approach\n- Resources for further research\n\n**Risk Assessment:**\n- Market risks\n- Operational risks\n- Regulatory considerations\n\nFocus on opportunities that are:\n- Currently underserved in many markets\n- Have predictable demand patterns\n- Don't require cutting-edge technology\n- Can be started with reasonable capital\n- Have clear paths to profitability\n\nProvide specific, actionable insights rather than generic advice.",
+        "options": {
+          "systemMessage": "You are a business opportunity research analyst specializing in identifying profitable ventures in traditional, stable industries. Your expertise lies in \"boring businesses\" - essential services and products that may not be glamorous but offer reliable income streams and growth potential. Focus on businesses with proven models, recurring revenue, and low disruption risk."
+        },
+        "promptType": "define"
+      },
+      "typeVersion": 1.9
+    },
+    {
+      "id": "4e5e19a9-b05f-4ef0-a432-a0e72c479096",
+      "name": "Azure OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAzureOpenAi",
+      "position": [
+        260,
+        520
+      ],
+      "parameters": {
+        "model": "gpt-4.1",
+        "options": {}
+      },
+      "credentials": {
+        "azureOpenAiApi": {
+          "id": "gDiLXmZSX0q3CyLu",
+          "name": "Azure Open AI account"
+        }
+      },
+      "typeVersion": 1
+    },
+    {
+      "id": "e7dbd62a-6580-4a28-ab85-5fdf885dacf1",
+      "name": "Daily Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [
+        -140,
+        360
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "value": 24
+            }
+          ]
+        }
+      },
+      "typeVersion": 1.2
+    }
+  ],
+  "active": false,
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e0cf8d41-3776-4aab-a5ec-fd16b8bc7458",
+  "connections": {
+    "Business Opportunity AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Format Opportunity Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Research Parameters": {
+      "main": [
+        [
+          {
+            "node": "Business Opportunity AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Daily Trigger": {
+      "main": [
+        [
+          {
+            "node": "Set Research Parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Opportunity Report": {
+      "main": [
+        [
+          {
+            "node": "Send Opportunity Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Azure OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Business Opportunity AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
