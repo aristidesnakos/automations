@@ -1,0 +1,245 @@
+{
+  "name": "APIFY-Gmaps",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Clean scraped data before LLM processing\nreturn $input.all().map(item => ({\n  ...item.json,\n  website: item.json.website?.toLowerCase().trim() || '',\n  phone: item.json.phone?.replace(/[^\\d+]/g, '') || '',\n  email: item.json.email?.toLowerCase().trim() || '',\n  reviewsCount: item.json.reviewsCount || '',\n}));"
+      },
+      "id": "84415cd8-4535-4e2a-878c-d009e619dcce",
+      "name": "Clean Data",
+      "type": "n8n-nodes-base.code",
+      "position": [
+        1088,
+        336
+      ],
+      "typeVersion": 2
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1cIMIh_DjoWXMDaJEH-AyTZbnAha6TxthCSSEam4NLsE",
+          "mode": "list",
+          "cachedResultName": "n8n-sheets-automations",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1cIMIh_DjoWXMDaJEH-AyTZbnAha6TxthCSSEam4NLsE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1464401086,
+          "mode": "list",
+          "cachedResultName": "apify-gmaps",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1cIMIh_DjoWXMDaJEH-AyTZbnAha6TxthCSSEam4NLsE/edit#gid=1464401086"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "phone": "={{ $json.phone }}",
+            "Address": "={{ $json.address }}",
+            "company name": "={{ $json.title }}",
+            "website": "={{ $json.website }}",
+            "Claimed Business": "={{ $json.claimThisBusiness }}",
+            "Reviews Count": "={{ $json.reviewsCount }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "company name",
+              "displayName": "company name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Claimed Business",
+              "displayName": "Claimed Business",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "website",
+              "displayName": "website",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "phone",
+              "displayName": "phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Address",
+              "displayName": "Address",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Reviews Count",
+              "displayName": "Reviews Count",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "309913ec-4d27-4814-b85c-7caeeb3116d5",
+      "name": "Export to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "position": [
+        1280,
+        336
+      ],
+      "typeVersion": 4.5,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "QX4RxeMUesSFppha",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Automated Business Lead Scraper (Form → Apify → Sheets)\n**Purpose:** Collect business leads based on user input, clean the data, and export them to Google Sheets.\n\n## **Workflow Steps**\n### 1. **Form Submission**\n- User enters `search term` and `location`.\n\n### 2. **Run Apify Actor**\n- Queries Google Maps Places via Apify.\n- Collects business details (company name, address, phone, website, reviews).\n\n### 3. **Clean Data**\n- Normalizes website (lowercase, trimmed).\n- Formats phone numbers (digits + `+` only).\n- Standardizes emails (lowercase, trimmed).\n\n### 4. **Export to Google Sheets**\n- Appends leads to the target sheet.\n- Columns mapped:  \n  - `company name`  \n  - `phone`  \n  - `Address`  \n  - `website`  \n  - `Claimed Business`  \n  - `Reviews Count`  \n\n## **Google Sheets Requirements**\n- Sheet: `apify-gmaps`  \n- Columns must match the mapped fields.",
+        "height": 748,
+        "width": 716,
+        "color": 5
+      },
+      "id": "8ad8ea39-954f-4af3-b00c-fd7425c16ea3",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -80,
+        32
+      ],
+      "typeVersion": 1
+    },
+    {
+      "parameters": {
+        "operation": "Run actor and get dataset",
+        "actorSource": "store",
+        "actorId": {
+          "__rl": true,
+          "value": "https://console.apify.com/actors/nwua9Gu5YrADL7ZDj/input",
+          "mode": "url"
+        },
+        "customBody": "={\n  \"searchStringsArray\": [\"{{ $json['search term'] }}\"],\n  \"includeWebResults\": false,\n  \"language\": \"en\",\n  \"locationQuery\": \"{{ $json.location }}\",\n  \"maxCrawledPlacesPerSearch\": 50,\n  \"maxImages\": 0,\n  \"maximumLeadsEnrichmentRecords\": 0,\n  \"scrapeContacts\": false,\n  \"scrapeDirectories\": false,\n  \"scrapeImageAuthors\": false,\n  \"scrapePlaceDetailPage\": false,\n  \"scrapeReviewsPersonalData\": true,\n  \"scrapeTableReservationProvider\": false,\n  \"skipClosedPlaces\": false,\n  \"searchMatching\": \"all\",\n  \"placeMinimumStars\": \"\",\n  \"website\": \"allPlaces\",\n  \"maxQuestions\": 0,\n  \"maxReviews\": 0,\n  \"reviewsSort\": \"newest\",\n  \"reviewsFilterString\": \"\",\n  \"reviewsOrigin\": \"all\"\n}",
+        "memory": 4096,
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        896,
+        336
+      ],
+      "id": "1a8a3908-7d28-4380-b1ca-48f9484d13c5",
+      "name": "Run an Actor and get dataset",
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "VwQJ6whiOog0I8mP",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "Scrape Businesses",
+        "formDescription": "Find Businesses in minutes",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "search term",
+              "placeholder": "dentists, boston, MA"
+            },
+            {
+              "fieldLabel": "location",
+              "placeholder": "Boston, MA"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        688,
+        336
+      ],
+      "id": "b94f1f24-5f93-4362-9c01-7c7e418acc52",
+      "name": "On form submission",
+      "webhookId": "94a67ece-b94f-4081-a16e-9809005b636c"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Clean Data": {
+      "main": [
+        [
+          {
+            "node": "Export to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run an Actor and get dataset": {
+      "main": [
+        [
+          {
+            "node": "Clean Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "Run an Actor and get dataset",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "timeSavedPerExecution": 50
+  },
+  "versionId": "e66002fe-54f9-466c-9852-f96f98b84c70",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5b9aff0ecdeb17791c04b93eac72e39e69151cfa63708980e5d936abe9308b8c"
+  },
+  "id": "A1OUZLDXXiqzExf1",
+  "tags": []
+}
