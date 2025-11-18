@@ -7,12 +7,12 @@
         "width": 520,
         "color": 6
       },
-      "id": "a2d55de4-a6be-41d4-b80a-84336654fe28",
+      "id": "6cbe4f31-0842-4de7-b943-f5b55f5d8196",
       "name": "Workflow Documentation",
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        48,
-        -384
+        -512,
+        -608
       ],
       "typeVersion": 1
     },
@@ -23,12 +23,12 @@
         "width": 580,
         "color": 3
       },
-      "id": "152de1a5-9424-45c6-8d32-423351bfcee6",
+      "id": "f48a0349-d7ad-48c5-9513-a5045174c0ba",
       "name": "Setup Instructions",
       "type": "n8n-nodes-base.stickyNote",
       "position": [
-        640,
-        -368
+        80,
+        -592
       ],
       "typeVersion": 1
     },
@@ -40,7 +40,7 @@
               "id": "urls-to-audit",
               "name": "urlsToAudit",
               "type": "string",
-              "value": "https://llanai.com"
+              "value": "={{ $json.Site }}"
             },
             {
               "id": "audit-timestamp",
@@ -52,12 +52,12 @@
         },
         "options": {}
       },
-      "id": "5f957125-6c40-412a-9b4a-4f64b790e658",
+      "id": "bac21ddf-028e-4286-a072-f6fcd330dfb0",
       "name": "URL List",
       "type": "n8n-nodes-base.set",
       "position": [
-        368,
-        144
+        -192,
+        -80
       ],
       "typeVersion": 3.4
     },
@@ -82,25 +82,25 @@
           "timeout": 10000
         }
       },
-      "id": "f8edc393-fee8-4fe8-93d1-f451b32ab4ef",
+      "id": "fb83fc74-61cc-4d5f-831b-a5c9f9f87ed1",
       "name": "Fetch Headers",
       "type": "n8n-nodes-base.httpRequest",
       "position": [
-        576,
-        144
+        16,
+        -80
       ],
       "typeVersion": 4.2
     },
     {
       "parameters": {
-        "jsCode": "const {urlsToAudit: url, headers = {}, auditTimestamp: timestamp} = $input.first().json;\nconst h = Object.fromEntries(Object.entries(headers).map(([k,v]) => [k.toLowerCase(), v]));\n\nconst checks = ['strict-transport-security','content-security-policy','x-frame-options','x-content-type-options','referrer-policy','permissions-policy','cache-control'];\nconst securityChecks = Object.fromEntries(checks.map(name => [name, {present: !!h[name], value: h[name] || null, score: 0, issues: []}]));\n\n// HSTS\nconst hsts = securityChecks['strict-transport-security'];\nif (hsts.present) {\n  const val = h['strict-transport-security'];\n  const maxAge = val.match(/max-age=(\\d+)/);\n  hsts.score = maxAge && parseInt(maxAge[1]) >= 31536000 ? 10 : 7;\n  if (hsts.score === 7) hsts.issues.push('max-age less than 1 year');\n  if (val.includes('includeSubDomains')) hsts.score += 2;\n  if (val.includes('preload')) hsts.score += 1;\n} else hsts.issues.push('HSTS header missing - vulnerable to downgrade attacks');\n\n// CSP\nconst csp = securityChecks['content-security-policy'];\nif (csp.present) {\n  const val = h['content-security-policy'];\n  csp.score = 8;\n  if (val.includes(\"'unsafe-eval'\")) { csp.score -= 3; csp.issues.push('unsafe-eval allows dangerous script execution'); }\n  if (val.includes(\"'unsafe-inline'\")) { csp.score -= 2; csp.issues.push('unsafe-inline reduces XSS protection'); }\n  if (val.includes('*') && !val.includes('data:')) { csp.score -= 2; csp.issues.push('wildcard (*) directive too permissive'); }\n} else csp.issues.push('CSP header missing - vulnerable to XSS attacks');\n\n// X-Frame-Options\nconst xfo = securityChecks['x-frame-options'];\nif (xfo.present) {\n  const val = h['x-frame-options'].toLowerCase();\n  xfo.score = val === 'deny' ? 10 : val === 'sameorigin' ? 8 : 5;\n  if (xfo.score === 5) xfo.issues.push('ALLOW-FROM directive is deprecated');\n} else xfo.issues.push('X-Frame-Options missing - vulnerable to clickjacking');\n\n// X-Content-Type-Options\nconst xcto = securityChecks['x-content-type-options'];\nif (xcto.present) {\n  xcto.score = h['x-content-type-options'].toLowerCase() === 'nosniff' ? 10 : 5;\n  if (xcto.score === 5) xcto.issues.push('Invalid value - should be \"nosniff\"');\n} else xcto.issues.push('X-Content-Type-Options missing - vulnerable to MIME sniffing');\n\n// Referrer-Policy\nconst rp = securityChecks['referrer-policy'];\nif (rp.present) {\n  const val = h['referrer-policy'].toLowerCase();\n  const strongPolicies = ['no-referrer', 'strict-origin', 'strict-origin-when-cross-origin'];\n  rp.score = strongPolicies.includes(val) ? 10 : ['same-origin', 'origin'].includes(val) ? 7 : 4;\n  if (rp.score === 4) rp.issues.push('Weak referrer policy - potential information leakage');\n} else rp.issues.push('Referrer-Policy missing - may leak sensitive URLs');\n\n// Permissions-Policy\nconst pp = securityChecks['permissions-policy'];\nif (pp.present) {\n  pp.score = 8;\n  const val = h['permissions-policy'];\n  if (!val.includes('camera') || !val.includes('microphone')) pp.issues.push('Consider restricting camera/microphone access');\n} else pp.issues.push('Permissions-Policy missing - no feature access control');\n\n// Cache-Control\nconst cc = securityChecks['cache-control'];\nconst isAuthPage = url && (url.includes('login') || url.includes('auth') || url.includes('admin'));\nif (cc.present) {\n  const val = h['cache-control'].toLowerCase();\n  if (isAuthPage) {\n    cc.score = val.includes('no-cache') || val.includes('no-store') ? 10 : 3;\n    if (cc.score === 3) cc.issues.push('Authentication pages should not be cached');\n  } else cc.score = 7;\n} else {\n  cc.issues.push(isAuthPage ? 'CRITICAL: Authentication page missing Cache-Control' : 'Cache-Control header missing');\n}\n\nconst actualScore = Object.values(securityChecks).reduce((sum, check) => sum + check.score, 0);\nconst securityScorePercentage = Math.round((actualScore / 70) * 100);\nconst grades = [90, 80, 70, 60];\nconst securityGrade = ['A', 'B', 'C', 'D', 'F'][grades.findIndex(g => securityScorePercentage >= g) + 1] || 'A';\n\nconst allIssues = Object.entries(securityChecks).flatMap(([header, check]) => \n  check.issues.map(issue => ({\n    header,\n    severity: ['strict-transport-security', 'content-security-policy'].includes(header) ? 'HIGH' : \n             ['x-frame-options', 'x-content-type-options'].includes(header) ? 'MEDIUM' : 'LOW',\n    issue\n  }))\n);\n\nconst criticalIssues = allIssues.filter(issue => issue.severity === 'HIGH' || (issue.header === 'cache-control' && issue.issue.includes('CRITICAL')));\n\nreturn [{json: {url, timestamp, securityScore: securityScorePercentage, securityGrade, actualScore, maxPossibleScore: 70, headers: securityChecks, issues: allIssues, criticalIssues, hasCriticalIssues: criticalIssues.length > 0}}];"
+        "jsCode": "const {urlsToAudit: url, headers = {}, auditTimestamp: timestamp} = $input.first().json;\nconst h = Object.fromEntries(Object.entries(headers).map(([k,v]) => [k.toLowerCase(), v]));\n\nconst checks = ['strict-transport-security','content-security-policy','x-frame-options','x-content-type-options','referrer-policy','permissions-policy','cache-control'];\nconst securityChecks = Object.fromEntries(checks.map(name => [name, {present: !!h[name], value: h[name] || null, score: 0, issues: []}]));\n\n// HSTS\nconst hsts = securityChecks['strict-transport-security'];\nif (hsts.present) {\n  const val = h['strict-transport-security'];\n  const maxAge = val.match(/max-age=(\\d+)/);\n  hsts.score = maxAge && parseInt(maxAge[1]) >= 31536000 ? 10 : 7;\n  if (hsts.score === 7) hsts.issues.push('max-age less than 1 year');\n  if (val.includes('includeSubDomains')) hsts.score += 2;\n  if (val.includes('preload')) hsts.score += 1;\n} else hsts.issues.push('HSTS header missing - vulnerable to downgrade attacks');\n\n// CSP\nconst csp = securityChecks['content-security-policy'];\nif (csp.present) {\n  const val = h['content-security-policy'];\n  csp.score = 8;\n  if (val.includes(\"'unsafe-eval'\")) { csp.score -= 3; csp.issues.push('unsafe-eval allows dangerous script execution'); }\n  if (val.includes(\"'unsafe-inline'\")) { csp.score -= 2; csp.issues.push('unsafe-inline reduces XSS protection'); }\n  if (val.includes('*') && !val.includes('data:')) { csp.score -= 2; csp.issues.push('wildcard (*) directive too permissive'); }\n} else csp.issues.push('CSP header missing - vulnerable to XSS attacks');\n\n// X-Frame-Options\nconst xfo = securityChecks['x-frame-options'];\nif (xfo.present) {\n  const val = h['x-frame-options'].toLowerCase();\n  xfo.score = val === 'deny' ? 10 : val === 'sameorigin' ? 8 : 5;\n  if (xfo.score === 5) xfo.issues.push('ALLOW-FROM directive is deprecated');\n} else xfo.issues.push('X-Frame-Options missing - vulnerable to clickjacking');\n\n// X-Content-Type-Options\nconst xcto = securityChecks['x-content-type-options'];\nif (xcto.present) {\n  xcto.score = h['x-content-type-options'].toLowerCase() === 'nosniff' ? 10 : 5;\n  if (xcto.score === 5) xcto.issues.push('Invalid value - should be \"nosniff\"');\n} else xcto.issues.push('X-Content-Type-Options missing - vulnerable to MIME sniffing');\n\n// Referrer-Policy\nconst rp = securityChecks['referrer-policy'];\nif (rp.present) {\n  const val = h['referrer-policy'].toLowerCase();\n  const strongPolicies = ['no-referrer', 'strict-origin', 'strict-origin-when-cross-origin'];\n  rp.score = strongPolicies.includes(val) ? 10 : ['same-origin', 'origin'].includes(val) ? 7 : 4;\n  if (rp.score === 4) rp.issues.push('Weak referrer policy - potential information leakage');\n} else rp.issues.push('Referrer-Policy missing - may leak sensitive URLs');\n\n// Permissions-Policy\nconst pp = securityChecks['permissions-policy'];\nif (pp.present) {\n  pp.score = 8;\n  const val = h['permissions-policy'];\n  if (!val.includes('camera') || !val.includes('microphone')) pp.issues.push('Consider restricting camera/microphone access');\n} else pp.issues.push('Permissions-Policy missing - no feature access control');\n\n// Cache-Control\nconst cc = securityChecks['cache-control'];\nconst isAuthPage = url && (url.includes('login') || url.includes('auth') || url.includes('admin'));\nif (cc.present) {\n  const val = h['cache-control'].toLowerCase();\n  if (isAuthPage) {\n    cc.score = val.includes('no-cache') || val.includes('no-store') ? 10 : 3;\n    if (cc.score === 3) cc.issues.push('Authentication pages should not be cached');\n  } else cc.score = 7;\n} else {\n  cc.issues.push(isAuthPage ? 'CRITICAL: Authentication page missing Cache-Control' : 'Cache-Control header missing');\n}\n\nconst actualScore = Object.values(securityChecks).reduce((sum, check) => sum + check.score, 0);\nconst securityScorePercentage = Math.round((actualScore / 70) * 100);\n\n// Revised grading scheme aligned with securityheaders.com standards\n// A: 85%+ (59+ points) - Comprehensive security implementation\n// B: 65%+ (45+ points) - Strong core security headers, acceptable missing non-critical headers\n// C: 50%+ (35+ points) - Basic security headers present\n// D: 35%+ (24+ points) - Minimal security implementation\n// F: <35% (<24 points) - Poor security posture\nconst grades = [85, 65, 50, 35];\nlet securityGrade = ['A', 'B', 'C', 'D', 'F'][grades.findIndex(g => securityScorePercentage >= g) + 1] || 'A';\n\n// Additional grade logic to align with securityheaders.com methodology\nconst hasCSP = securityChecks['content-security-policy'].present;\nconst hasPermissions = securityChecks['permissions-policy'].present;\nconst hasHSTS = securityChecks['strict-transport-security'].present;\nconst hasFrameOptions = securityChecks['x-frame-options'].present;\nconst hasNoSniff = securityChecks['x-content-type-options'].present;\nconst hasReferrer = securityChecks['referrer-policy'].present;\n\n// Core security headers count (HSTS, X-Frame, X-Content-Type, Referrer)\nconst coreHeadersCount = [hasHSTS, hasFrameOptions, hasNoSniff, hasReferrer].filter(Boolean).length;\n\n// Grade adjustment: If you have 4/4 core headers but missing CSP+Permissions = B grade minimum\nif (coreHeadersCount >= 4 && !hasCSP && !hasPermissions && securityScorePercentage >= 60) {\n  if (securityGrade === 'C' || securityGrade === 'D') {\n    securityGrade = 'B';\n  }\n}\n\n// If missing critical HSTS or CSP, cap at C grade maximum\nif (!hasHSTS && !hasCSP && securityGrade !== 'F') {\n  if (securityGrade === 'A' || securityGrade === 'B') {\n    securityGrade = 'C';\n  }\n}\n\nconst allIssues = Object.entries(securityChecks).flatMap(([header, check]) => \n  check.issues.map(issue => ({\n    header,\n    severity: ['strict-transport-security', 'content-security-policy'].includes(header) ? 'HIGH' : \n             ['x-frame-options', 'x-content-type-options'].includes(header) ? 'MEDIUM' : 'LOW',\n    issue\n  }))\n);\n\nconst criticalIssues = allIssues.filter(issue => issue.severity === 'HIGH' || (issue.header === 'cache-control' && issue.issue.includes('CRITICAL')));\n\nreturn [{json: {url, timestamp, securityScore: securityScorePercentage, securityGrade, actualScore, maxPossibleScore: 70, headers: securityChecks, issues: allIssues, criticalIssues, hasCriticalIssues: criticalIssues.length > 0}}];"
       },
-      "id": "caecd288-83b3-40e5-b6bd-dd4e65298d1e",
+      "id": "0c941fe2-2282-4eb1-b41c-f98443c0f55e",
       "name": "Evaluate Headers",
       "type": "n8n-nodes-base.code",
       "position": [
-        768,
-        144
+        208,
+        -80
       ],
       "typeVersion": 2
     },
@@ -202,12 +202,12 @@
         },
         "options": {}
       },
-      "id": "6a4a8533-5100-448a-8c52-556521f84601",
+      "id": "e28e5d7c-8c5c-491b-9f54-511ddafcb415",
       "name": "Format Report",
       "type": "n8n-nodes-base.set",
       "position": [
-        1184,
-        144
+        624,
+        -80
       ],
       "typeVersion": 3.4
     },
@@ -379,12 +379,12 @@
           "useAppend": true
         }
       },
-      "id": "d1d680e9-5c58-433a-ae03-fb2ce7f5e28e",
+      "id": "3f9c72db-4247-4061-b585-aa2130d726b6",
       "name": "Export to Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "position": [
-        1376,
-        144
+        816,
+        -80
       ],
       "typeVersion": 4.4,
       "credentials": {
@@ -396,14 +396,14 @@
     },
     {
       "parameters": {
-        "jsCode": "// Security Headers Audit HTML Email Template Generator\n// Fixed to use evaluation data directly and generate header status\n\n// Extract data from the correct nodes - since this runs after the If node\nconst evaluationData = $('Evaluate Headers').first()?.json || {};\nconst urlData = $('URL List').first()?.json || {};\n\n// Debug: log the actual data structure\nconsole.log('Evaluation data keys:', Object.keys(evaluationData));\nconsole.log('Headers data:', evaluationData.headers);\n\nconst url = urlData.urlsToAudit || 'Unknown URL';\nconst timestamp = urlData.auditTimestamp || 'Unknown';\nconst detailedIssues = evaluationData.issues || [];\nconst criticalIssuesList = evaluationData.criticalIssues || [];\nconst grade = evaluationData.securityGrade || 'F';\nconst score = Math.round(evaluationData.securityScore || 0);\nconst headersData = evaluationData.headers || {};\n\n// Color schemes and configurations\nconst colors = {\n  grade: { A: '#38a169', B: '#68d391', C: '#f6ad55', D: '#fc8181', F: '#e53e3e' },\n  severity: { HIGH: '#e53e3e', MEDIUM: '#dd6b20', LOW: '#38a169' },\n  status: { present: '#38a169', missing: '#e53e3e' }\n};\n\n// Headers configuration for dynamic generation\nconst headers = [\n  { key: 'strict-transport-security', name: 'HSTS (Strict-Transport-Security)' },\n  { key: 'content-security-policy', name: 'CSP (Content-Security-Policy)' },\n  { key: 'x-frame-options', name: 'X-Frame-Options' },\n  { key: 'x-content-type-options', name: 'X-Content-Type-Options' },\n  { key: 'referrer-policy', name: 'Referrer-Policy' },\n  { key: 'permissions-policy', name: 'Permissions-Policy' },\n  { key: 'cache-control', name: 'Cache-Control' }\n];\n\n// Elegant helper functions\nconst formatGrade = g => `<span style=\"color: ${colors.grade[g] || '#718096'}; font-weight: bold; font-size: 24px;\">${g}</span>`;\n\nconst formatStatus = (isPresent, name) => {\n  const color = colors.status[isPresent ? 'present' : 'missing'];\n  const symbol = isPresent ? '✓' : '✗';\n  return `<span style=\"color: ${color}; font-weight: bold;\">${symbol} ${name}</span>`;\n};\n\nconst formatIssue = ({ severity, header, issue }) => \n  `<div style=\"margin: 8px 0; padding: 8px; border-left: 3px solid ${colors.severity[severity]}; background: #f8f9fa;\">\n    <strong style=\"color: ${colors.severity[severity]};\">[${severity}] ${header.toUpperCase()}</strong><br>${issue}\n  </div>`;\n\n// Generate header grid dynamically using headers data structure\nconst headerGrid = headers.map(({ key, name }) => {\n  const isPresent = headersData[key] && headersData[key].present;\n  console.log(`Header ${key} present:`, isPresent);\n  return `<div class=\"header-item\">${formatStatus(isPresent, name)}</div>`;\n}).join('');\n\n// Generate issues section\nconst issuesSection = detailedIssues.length > 0 ? \n  `<div class=\"issues-section\">\n    <h3>🚨 Issues Detected</h3>\n    <p><strong>Immediate action required!</strong></p>\n    ${detailedIssues.map(formatIssue).join('')}\n  </div>` :\n  `<div style=\"background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #38a169;\">\n    <h3 style=\"color: #38a169;\">✅ No Issues Detected</h3>\n    <p>All security headers are properly configured!</p>\n  </div>`;\n\nconst html = `<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Security Headers Audit Report</title>\n  <style>\n    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; }\n    .header { background: #1a202c; color: white; padding: 20px; border-radius: 8px; text-align: center; }\n    .score-section { background: #f7fafc; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; }\n    .headers-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 20px 0; }\n    .header-item { padding: 10px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f8f9fa; }\n    .issues-section { background: #fed7d7; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #e53e3e; }\n    .footer { text-align: center; padding: 20px; color: #718096; font-size: 14px; }\n    .critical { color: #e53e3e; font-weight: bold; }\n    .warning { color: #dd6b20; }\n  </style>\n</head>\n<body>\n  <div class=\"header\">\n    <h1>🔒 Security Headers Audit Report</h1>\n    <p>${detailedIssues.length > 0 ? 'Critical security vulnerabilities detected' : 'Security audit completed'}</p>\n  </div>\n\n  <div class=\"score-section\">\n    <h2>Security Grade: ${formatGrade(grade)}</h2>\n    <p><strong>Score:</strong> ${score}%</p>\n    <p><strong>URL:</strong> ${url}</p>\n    <p><strong>Audit Time:</strong> ${timestamp}</p>\n  </div>\n\n  <h3>📊 Security Headers Status</h3>\n  <div class=\"headers-grid\">\n    ${headerGrid}\n  </div>\n\n  ${issuesSection}\n\n  <div style=\"background: #e6fffa; padding: 20px; border-radius: 8px; margin: 20px 0;\">\n    <h3>🛠️ Next Steps</h3>\n    <ul>\n      <li>Review and implement missing security headers</li>\n      <li>Test changes in a staging environment first</li>\n      <li>Monitor for any application issues after implementation</li>\n      <li>Schedule regular security header audits</li>\n    </ul>\n  </div>\n\n  <div class=\"footer\">\n    <p>Made by <a href=\"https://github.com/aristidesnakos/automations\">Ari Nakos</a> - Check the Github repo for more n8n automations</p>\n  </div>\n</body>\n</html>`;\n\nreturn [{ json: { email_html: html, email_subject: `🚨 Security Alert: ${grade} Grade - ${url}` } }];"
+        "jsCode": "const evaluationData = $('Evaluate Headers').first()?.json || {}; const urlData = $('URL List').first()?.json || {}; const aiRemediation = $('AI Remediation Agent').first()?.json?.output || 'AI remediation instructions not available'; const url = urlData.urlsToAudit || 'Unknown URL'; const timestamp = urlData.auditTimestamp || 'Unknown'; const detailedIssues = evaluationData.issues || []; const grade = evaluationData.securityGrade || 'F'; const score = Math.round(evaluationData.securityScore || 0); const actualScore = evaluationData.actualScore || 0; const headersData = evaluationData.headers || {}; const colors = { A: '#28a745', B: '#ffc107', C: '#fd7e14', D: '#dc3545', F: '#6f42c1' }; const headers = [ { key: 'strict-transport-security', name: 'Strict-Transport-Security' }, { key: 'content-security-policy', name: 'Content-Security-Policy' }, { key: 'x-frame-options', name: 'X-Frame-Options' }, { key: 'x-content-type-options', name: 'X-Content-Type-Options' }, { key: 'referrer-policy', name: 'Referrer-Policy' }, { key: 'permissions-policy', name: 'Permissions-Policy' }, { key: 'cache-control', name: 'Cache-Control' } ]; const createHeaderBadge = (headerKey, headerName, isPresent) => { const styles = isPresent ? 'background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; border: 2px solid #15803d; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);' : 'background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; border: 2px solid #b91c1c; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);'; const symbol = isPresent ? '[PASS]' : '[FAIL]'; return '<span style=\"display: inline-block; padding: 10px 16px; margin: 6px 4px; ' + styles + ' border-radius: 12px; font-size: 14px; font-weight: 700; letter-spacing: 0.025em; text-shadow: 0 1px 2px rgba(0,0,0,0.1);\">' + symbol + ' ' + headerName + '</span>'; }; const headerBadges = headers.map(({ key, name }) => { const isPresent = headersData[key] && headersData[key].present; return createHeaderBadge(key, name, isPresent); }).join(' '); const missingHeaders = headers.filter(({ key }) => !headersData[key] || !headersData[key].present); const missingHeadersSection = missingHeaders.length > 0 ? '<div class=\"section\"><h2>Missing Headers</h2>' + missingHeaders.map(({ key, name }) => { const description = key === 'content-security-policy' ? 'Content Security Policy is an effective measure to protect your site from XSS attacks.' : key === 'permissions-policy' ? 'Permissions Policy allows a site to control which features and APIs can be used in the browser.' : key === 'x-frame-options' ? 'X-Frame-Options tells the browser whether you want to allow your site to be framed or not.' : key === 'x-content-type-options' ? 'X-Content-Type-Options stops a browser from trying to MIME-sniff the content type.' : key === 'strict-transport-security' ? 'HTTP Strict Transport Security strengthens your implementation of TLS.' : key === 'referrer-policy' ? 'Referrer Policy controls how much information the browser includes with navigations.' : 'This security header helps protect your site from various attacks.'; return '<div style=\"margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-radius: 12px; border-left: 4px solid #dc2626; box-shadow: 0 2px 8px rgba(220, 38, 38, 0.1);\"><div style=\"color: #dc2626; font-weight: 800; margin-bottom: 8px; font-size: 18px;\">' + name + '</div><div style=\"color: #374151; font-size: 16px; line-height: 1.6;\">' + description + '</div></div>'; }).join('') + '</div>' : ''; const presentHeadersWithIssues = Object.entries(headersData).filter(([key, data]) => data.present && data.issues.length > 0); const warningsSection = presentHeadersWithIssues.length > 0 ? '<div class=\"section\"><h2>Warnings</h2>' + presentHeadersWithIssues.map(([key, data]) => { const headerName = headers.find(h => h.key === key)?.name || key; return '<div style=\"margin-bottom: 24px; padding: 20px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 12px; border-left: 4px solid #f59e0b;\"><div style=\"color: #f59e0b; font-weight: 800; margin-bottom: 8px; font-size: 18px;\">' + headerName + '</div><div style=\"color: #374151; font-size: 16px; line-height: 1.6;\">' + data.issues.join('. ') + '</div></div>'; }).join('') + '</div>' : ''; const rawHeadersSection = '<div class=\"section\"><h2>Raw Headers</h2><div style=\"background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); padding: 24px; border-radius: 16px; font-family: monospace; font-size: 14px; border: 2px solid #cbd5e1;\">' + Object.entries(headersData).filter(([key, data]) => data.present).map(([key, data]) => { const headerColor = data.issues.length > 0 ? '#f59e0b' : '#22c55e'; const headerValue = (data.value || 'present').length > 100 ? (data.value || 'present').substring(0, 97) + '...' : (data.value || 'present'); return '<div style=\"margin-bottom: 16px; padding: 12px; background: #ffffff; border-radius: 8px; border-left: 4px solid ' + headerColor + ';\"><span style=\"color: ' + headerColor + '; font-weight: 700; display: block; margin-bottom: 4px;\">' + key + '</span><span style=\"color: #475569; word-break: break-all; font-size: 13px;\">' + headerValue + '</span></div>'; }).join('') + '</div></div>'; const aiRemediationSection = '<div class=\"section\"><h2>AI-Generated Remediation Plan</h2><div style=\"background: linear-gradient(135deg, #ddd6fe 0%, #c4b5fd 100%); padding: 24px; border-radius: 16px; border-left: 4px solid #8b5cf6;\"><div style=\"background: #ffffff; padding: 24px; border-radius: 12px; margin-top: 12px; font-family: monospace; font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-x: auto; border: 2px solid #e5e7eb;\">' + aiRemediation.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div></div></div>'; const html = '<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"><title>Security Headers Audit Report</title><style>body { font-family: \"Inter\", \"Segoe UI\", system-ui, -apple-system, sans-serif; line-height: 1.8; color: #1a1a1a; max-width: 1000px; margin: 0 auto; padding: 40px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); font-size: 16px; letter-spacing: 0.01em; min-height: 100vh; } .container { background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 25px 80px rgba(0,0,0,0.25), 0 8px 25px rgba(0,0,0,0.15); border: 2px solid #e2e8f0; } .summary-header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 50px 40px; border-bottom: 3px solid #475569; position: relative; overflow: hidden; } .summary-details { position: relative; z-index: 2; } .summary-details h1 { margin: 0 0 20px 0; font-size: 32px; font-weight: 800; color: #ffffff; text-shadow: 0 2px 4px rgba(0,0,0,0.3); letter-spacing: -0.02em; } .summary-row { margin: 12px 0; font-size: 16px; } .summary-label { font-weight: 700; color: #ffffff; margin-right: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.2); } .section { padding: 40px; border-bottom: 2px solid #e2e8f0; background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%); } .section:last-child { border-bottom: none; } .section h2 { color: #1e293b; font-size: 24px; font-weight: 800; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 3px solid #e2e8f0; letter-spacing: -0.01em; } .header-badges { margin-top: 16px; line-height: 1.6; } .warning-badge { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #1a1a1a; padding: 8px 16px; border-radius: 8px; font-size: 14px; font-weight: 700; text-shadow: 0 1px 2px rgba(255,255,255,0.3); border: 2px solid #d97706; } .footer { text-align: center; padding: 40px; color: #64748b; font-size: 16px; background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); border-top: 3px solid #cbd5e1; }</style></head><body><div class=\"container\"><div class=\"summary-header\"><div class=\"summary-details\"><h1>Security Report Summary</h1><div class=\"summary-row\"><span class=\"summary-label\">Site:</span><span style=\"color: #ffffff;\">' + url + '</span></div><div class=\"summary-row\"><span class=\"summary-label\">Report Time:</span><span style=\"color: #ffffff;\">' + timestamp + '</span></div><div class=\"summary-row\"><span class=\"summary-label\">Score:</span><span style=\"color: #ffffff;\">' + score + '% (' + actualScore + '/70 points)</span></div><div class=\"summary-row\"><span class=\"summary-label\">Headers:</span><div class=\"header-badges\">' + headerBadges + '</div></div>' + (detailedIssues.length > 0 ? '<div class=\"summary-row\"><span class=\"warning-badge\">Grade capped at ' + grade + ', please see warnings below.</span></div>' : '') + '</div></div>' + missingHeadersSection + ' ' + warningsSection + ' ' + rawHeadersSection + ' ' + aiRemediationSection + ' <div class=\"section\"><h2>Next Steps</h2><div style=\"background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); padding: 24px; border-radius: 16px; border-left: 4px solid #0ea5e9;\"><ul style=\"color: #374151; font-size: 16px; line-height: 1.8; margin: 0; padding-left: 20px;\"><li style=\"margin-bottom: 8px; font-weight: 600;\">Copy the AI-generated remediation instructions above</li><li style=\"margin-bottom: 8px; font-weight: 600;\">Paste them into your local code editor AI assistant</li><li style=\"margin-bottom: 8px; font-weight: 600;\">Test changes in a staging environment first</li><li style=\"margin-bottom: 8px; font-weight: 600;\">Monitor for any application issues after implementation</li><li style=\"font-weight: 600;\">Schedule regular security header audits</li></ul></div></div></div><div class=\"footer\"><p>Made by <a href=\"https://github.com/aristidesnakos/automations\" style=\"color: #007bff;\">Ari Nakos</a> - Check the Github repo for more n8n automations</p></div></body></html>'; return [{ json: { email_html: html, email_subject: 'Security Alert: ' + grade + ' Grade - ' + url } }];"
       },
-      "id": "08e05e09-e3f6-4efe-a1e2-8f441ce9ccd9",
+      "id": "ce708e41-5724-4002-8488-0479d28f2589",
       "name": "HTML Email Template",
       "type": "n8n-nodes-base.code",
       "position": [
-        1184,
-        336
+        848,
+        144
       ],
       "typeVersion": 2
     },
@@ -412,16 +412,14 @@
         "sendTo": "ari@llanai.com",
         "subject": "={{ $json.email_subject }}",
         "message": "={{ $json.email_html }}",
-        "options": {
-          "bodyContentType": "html"
-        }
+        "options": {}
       },
-      "id": "840b5fda-7028-4606-96a8-8010c1711cb3",
+      "id": "287d52f6-f383-4ac9-b40d-a86df5b67d65",
       "name": "Send Alert",
       "type": "n8n-nodes-base.gmail",
       "position": [
-        1376,
-        336
+        1040,
+        144
       ],
       "typeVersion": 2.1,
       "webhookId": "747db1cd-d99a-4cd9-b8c4-d10e3e50b4c2",
@@ -431,28 +429,6 @@
           "name": "Auspicious Gmail"
         }
       }
-    },
-    {
-      "parameters": {},
-      "id": "9eb334be-0486-4090-82b5-e06b415503af",
-      "name": "Audit Complete",
-      "type": "n8n-nodes-base.noOp",
-      "position": [
-        1552,
-        144
-      ],
-      "typeVersion": 1
-    },
-    {
-      "parameters": {},
-      "type": "n8n-nodes-base.manualTrigger",
-      "typeVersion": 1,
-      "position": [
-        176,
-        144
-      ],
-      "id": "ec460cb1-e36f-4c5a-a9e8-82daaef8df91",
-      "name": "Start Audit"
     },
     {
       "parameters": {
@@ -481,11 +457,73 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        960,
+        336,
+        160
+      ],
+      "id": "48196792-341e-474f-994f-38535784012b",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are an expert security consultant creating instructions for non-technical users to give to their AI code editor. Based on the security audit below, create simple, copy-paste instructions that anyone can use.\n\n**Security Audit Results:**\n- Website: {{ $('URL List').item.json.urlsToAudit }}\n- Security Grade: {{ $('Evaluate Headers').item.json.securityGrade }}\n- Current Score: {{ $('Evaluate Headers').item.json.securityScore }}%\n- Issues Found: {{ $('Evaluate Headers').item.json.criticalIssues.length }} critical issues\n\n**Missing/Problematic Headers:**\n{{ $('Evaluate Headers').item.json.issues.map(issue => `• ${issue.header}: ${issue.issue}`).join('\\n') }}\n\nCreate instructions using this EXACT format:\n\n---\n\n**COPY THIS MESSAGE TO YOUR AI CODE EDITOR:**\n\nI need help implementing security headers for my website. Here's what needs to be fixed:\n\nMY WEBSITE: {{ $('URL List').item.json.urlsToAudit }}\nCURRENT SECURITY GRADE: {{ $('Evaluate Headers').item.json.securityGrade }}\n\nPLEASE IMPLEMENT THESE SECURITY HEADERS:\n[List each missing/problematic header with a brief explanation of what it does]\n\nI NEED YOU TO:\n1. Show me exactly where to add these headers in my code\n2. Provide the exact header configurations to copy-paste\n3. Tell me how to test that the headers are working\n4. Make sure the headers won't break my website\n\nMY TECH STACK: [Tell the AI to ask me about my setup - nginx, Apache, Node.js, etc.]\n\nPlease provide step-by-step instructions that I can follow even if I'm not a developer.\n\n---\n\nMake this message clear and simple so anyone can copy-paste it to their AI assistant and get exactly what they need.",
+        "options": {
+          "systemMessage": "You are a security consultant writing for non-technical users. Create simple, clear instructions that anyone can copy-paste to their AI code editor. Use plain language and focus on what the user needs to tell their AI assistant to get the security headers implemented correctly. Don't include technical implementation details - just create the perfect prompt for them to use."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.9,
+      "position": [
+        560,
+        144
+      ],
+      "id": "d6d67d8e-4b8c-4dbe-869a-1beb52de5c77",
+      "name": "AI Remediation Agent"
+    },
+    {
+      "parameters": {
+        "model": "z-ai/glm-4.6",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        512,
         336
       ],
-      "id": "0a50654a-6fc1-4e25-8ab4-45788fee06fc",
-      "name": "If"
+      "id": "3bbf3dab-ff22-42e5-80bb-41cd54f2bd85",
+      "name": "AI Remediation Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "sjBzd8ReCYahLK9O",
+          "name": "n8n personal evals"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formTitle": "Site",
+        "formDescription": "Site to examine",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Site",
+              "placeholder": "theauspiciouscompany.com",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        -384,
+        -80
+      ],
+      "id": "de157d92-be00-4321-b3fa-1d21047629ee",
+      "name": "Form Input",
+      "webhookId": "fb7e46f5-1a4b-482b-805a-afb9074a6c2f"
     }
   ],
   "connections": {
@@ -538,17 +576,6 @@
         ]
       ]
     },
-    "Export to Sheets": {
-      "main": [
-        [
-          {
-            "node": "Audit Complete",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
     "HTML Email Template": {
       "main": [
         [
@@ -560,22 +587,44 @@
         ]
       ]
     },
-    "Start Audit": {
+    "If": {
       "main": [
         [
           {
-            "node": "URL List",
+            "node": "AI Remediation Agent",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "If": {
+    "AI Remediation Agent": {
       "main": [
         [
           {
             "node": "HTML Email Template",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Remediation Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Remediation Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Form Input": {
+      "main": [
+        [
+          {
+            "node": "URL List",
             "type": "main",
             "index": 0
           }
